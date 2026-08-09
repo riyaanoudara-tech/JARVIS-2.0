@@ -1,0 +1,745 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AEGIS — Command Interface</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Space+Mono:wght@400;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#060a10;
+    --bg-panel:#0b121b;
+    --bg-panel-2:#0e1620;
+    --grid-line:rgba(79,216,255,0.055);
+    --cyan:#4fd8ff;
+    --cyan-dim:rgba(79,216,255,0.35);
+    --gold:#ffb238;
+    --green:#5cffa8;
+    --red:#ff5468;
+    --text:#dbeeff;
+    --text-dim:#6f8aa3;
+    --border:rgba(79,216,255,0.16);
+    --radius:2px;
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;}
+  body{
+    margin:0;
+    background:
+      radial-gradient(ellipse at 20% 0%, rgba(79,216,255,0.07), transparent 55%),
+      radial-gradient(ellipse at 90% 100%, rgba(255,178,56,0.05), transparent 50%),
+      repeating-linear-gradient(0deg, var(--grid-line) 0px, var(--grid-line) 1px, transparent 1px, transparent 32px),
+      repeating-linear-gradient(90deg, var(--grid-line) 0px, var(--grid-line) 1px, transparent 1px, transparent 32px),
+      var(--bg);
+    color:var(--text);
+    font-family:'Inter',sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  ::selection{background:var(--cyan-dim);}
+  ::-webkit-scrollbar{width:8px;height:8px;}
+  ::-webkit-scrollbar-track{background:transparent;}
+  ::-webkit-scrollbar-thumb{background:rgba(79,216,255,0.25);border-radius:4px;}
+
+  button, input, textarea, select{font-family:inherit;}
+  button{cursor:pointer;}
+  :focus-visible{outline:2px solid var(--cyan); outline-offset:2px;}
+
+  .app{
+    display:grid;
+    grid-template-rows:auto 1fr;
+    grid-template-columns:220px 1fr;
+    grid-template-areas:
+      "header header"
+      "nav main";
+    min-height:100vh;
+  }
+
+  /* ---------- HEADER ---------- */
+  header{
+    grid-area:header;
+    display:flex;
+    align-items:center;
+    gap:16px;
+    padding:12px 20px;
+    border-bottom:1px solid var(--border);
+    background:linear-gradient(180deg, rgba(79,216,255,0.04), transparent);
+  }
+  .core-wrap{width:44px;height:44px;flex:none;position:relative;}
+  .core-wrap svg{width:100%;height:100%;overflow:visible;}
+  .core-ring{transform-origin:50% 50%;fill:none;}
+  .ring-outer{stroke:var(--cyan);stroke-width:1.2;opacity:0.55;stroke-dasharray:4 6;animation:spin 12s linear infinite;}
+  .ring-mid{stroke:var(--gold);stroke-width:1;opacity:0.4;stroke-dasharray:2 4;animation:spin-rev 8s linear infinite;}
+  .core-dot{fill:var(--cyan);filter:drop-shadow(0 0 6px var(--cyan));animation:pulse 2.6s ease-in-out infinite;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  @keyframes spin-rev{to{transform:rotate(-360deg);}}
+  @keyframes pulse{0%,100%{opacity:0.65;r:3;}50%{opacity:1;r:4.2;}}
+  .core-wrap.thinking .ring-outer{animation-duration:2.5s;stroke:var(--gold);}
+  .core-wrap.thinking .core-dot{animation-duration:0.7s;}
+  .core-wrap.listening .core-dot{fill:var(--green);filter:drop-shadow(0 0 8px var(--green));animation-duration:0.9s;}
+
+  .brand{display:flex;flex-direction:column;line-height:1.1;}
+  .brand .name{font-family:'Orbitron',sans-serif;font-weight:700;font-size:18px;letter-spacing:2px;color:var(--text);}
+  .brand .sub{font-family:'Space Mono',monospace;font-size:10px;color:var(--text-dim);letter-spacing:1px;}
+
+  .status{
+    margin-left:auto;
+    display:flex;
+    align-items:center;
+    gap:18px;
+    font-family:'Space Mono',monospace;
+    font-size:11px;
+    color:var(--text-dim);
+  }
+  .status .dot{width:6px;height:6px;border-radius:50%;background:var(--green);display:inline-block;margin-right:6px;box-shadow:0 0 6px var(--green);animation:pulse 2s ease-in-out infinite;}
+  .status .clock{color:var(--cyan);}
+
+  /* ---------- NAV ---------- */
+  nav{
+    grid-area:nav;
+    border-right:1px solid var(--border);
+    padding:16px 10px;
+    display:flex;
+    flex-direction:column;
+    gap:4px;
+    background:linear-gradient(180deg, transparent, rgba(79,216,255,0.02));
+  }
+  .nav-btn{
+    display:flex;align-items:center;gap:10px;
+    background:transparent;border:1px solid transparent;
+    color:var(--text-dim);
+    padding:10px 12px;
+    font-size:13px;
+    font-weight:500;
+    text-align:left;
+    border-radius:var(--radius);
+    letter-spacing:0.3px;
+    transition:all .15s ease;
+  }
+  .nav-btn .tag{font-family:'Space Mono',monospace;font-size:10px;opacity:0.6;}
+  .nav-btn:hover{color:var(--text);background:rgba(79,216,255,0.05);}
+  .nav-btn.active{
+    color:var(--cyan);
+    background:rgba(79,216,255,0.08);
+    border-color:var(--border);
+    box-shadow:inset 2px 0 0 var(--cyan);
+  }
+
+  /* ---------- MAIN ---------- */
+  main{grid-area:main; padding:20px 24px; overflow-y:auto; max-height:calc(100vh - 68px);}
+  .panel{display:none;}
+  .panel.active{display:block; animation:fadein .25s ease;}
+  @keyframes fadein{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:translateY(0);}}
+
+  h2.panel-title{
+    font-family:'Orbitron',sans-serif;
+    font-size:14px;
+    letter-spacing:2px;
+    color:var(--cyan);
+    margin:0 0 4px;
+    text-transform:uppercase;
+  }
+  .panel-desc{color:var(--text-dim); font-size:12.5px; margin:0 0 18px;}
+
+  /* ---------- COMMAND / CHAT ---------- */
+  .chat-shell{
+    display:flex;flex-direction:column;
+    height:calc(100vh - 190px);
+    border:1px solid var(--border);
+    background:var(--bg-panel);
+    border-radius:var(--radius);
+  }
+  .chat-log{flex:1;overflow-y:auto;padding:18px;display:flex;flex-direction:column;gap:14px;}
+  .msg{max-width:78%;padding:10px 14px;border-radius:var(--radius);font-size:13.5px;line-height:1.5;}
+  .msg.user{align-self:flex-end;background:rgba(79,216,255,0.1);border:1px solid var(--border);color:var(--text);}
+  .msg.assistant{align-self:flex-start;background:rgba(255,178,56,0.06);border:1px solid rgba(255,178,56,0.2);color:var(--text);}
+  .msg.assistant .label, .msg.user .label{display:block;font-family:'Space Mono',monospace;font-size:9.5px;letter-spacing:1px;text-transform:uppercase;color:var(--text-dim);margin-bottom:4px;}
+  .msg.error{align-self:flex-start;background:rgba(255,84,104,0.08);border:1px solid rgba(255,84,104,0.3);color:#ffb4bd;font-size:12.5px;}
+  .actions-log{font-family:'Space Mono',monospace;font-size:11px;color:var(--green);margin-top:8px;display:flex;flex-direction:column;gap:2px;}
+
+  .chat-input-row{display:flex;gap:8px;padding:12px;border-top:1px solid var(--border);}
+  .chat-input-row input{
+    flex:1;background:var(--bg-panel-2);border:1px solid var(--border);color:var(--text);
+    padding:11px 12px;border-radius:var(--radius);font-size:13.5px;
+  }
+  .icon-btn{
+    background:var(--bg-panel-2);border:1px solid var(--border);color:var(--text-dim);
+    width:40px;border-radius:var(--radius);font-size:15px;flex:none;
+    display:flex;align-items:center;justify-content:center;
+    transition:all .15s ease;
+  }
+  .icon-btn:hover{color:var(--cyan);border-color:var(--cyan-dim);}
+  .icon-btn.on{color:var(--green);border-color:var(--green);}
+  .send-btn{
+    background:var(--cyan);color:#00131a;border:none;font-weight:700;
+    padding:0 18px;border-radius:var(--radius);font-size:13px;letter-spacing:0.5px;
+  }
+  .send-btn:disabled{opacity:0.5;}
+
+  /* ---------- FORMS / LISTS ---------- */
+  .toolbar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;align-items:flex-end;}
+  .field{display:flex;flex-direction:column;gap:4px;}
+  .field label{font-size:10.5px;color:var(--text-dim);letter-spacing:0.5px;text-transform:uppercase;}
+  .field input, .field select{
+    background:var(--bg-panel-2);border:1px solid var(--border);color:var(--text);
+    padding:8px 10px;border-radius:var(--radius);font-size:13px;min-width:120px;
+  }
+  .btn-primary{
+    background:var(--cyan);color:#00131a;border:none;font-weight:700;
+    padding:9px 16px;border-radius:var(--radius);font-size:12.5px;letter-spacing:0.4px;height:36px;
+  }
+  .btn-ghost{
+    background:transparent;border:1px solid var(--border);color:var(--text-dim);
+    padding:6px 10px;border-radius:var(--radius);font-size:11.5px;
+  }
+  .btn-ghost:hover{color:var(--red);border-color:var(--red);}
+
+  table{width:100%;border-collapse:collapse;font-size:13px;}
+  thead th{
+    text-align:left;font-family:'Space Mono',monospace;font-size:10.5px;color:var(--text-dim);
+    text-transform:uppercase;letter-spacing:0.5px;padding:8px 10px;border-bottom:1px solid var(--border);
+  }
+  tbody td{padding:10px;border-bottom:1px solid rgba(79,216,255,0.06);}
+  tbody tr:hover{background:rgba(79,216,255,0.03);}
+  .pill{display:inline-block;padding:2px 9px;border-radius:20px;font-size:10.5px;font-family:'Space Mono',monospace;letter-spacing:0.4px;}
+  .pill.low{background:rgba(111,138,163,0.15);color:var(--text-dim);}
+  .pill.medium{background:rgba(255,178,56,0.15);color:var(--gold);}
+  .pill.high{background:rgba(255,84,104,0.15);color:var(--red);}
+  .pill.done{background:rgba(92,255,168,0.15);color:var(--green);}
+  .pill.lead{background:rgba(111,138,163,0.15);color:var(--text-dim);}
+  .pill.active{background:rgba(92,255,168,0.15);color:var(--green);}
+  .pill.paused{background:rgba(255,178,56,0.15);color:var(--gold);}
+  .pill.income{background:rgba(92,255,168,0.15);color:var(--green);}
+  .pill.expense{background:rgba(255,84,104,0.15);color:var(--red);}
+  .empty-state{
+    border:1px dashed var(--border);border-radius:var(--radius);padding:30px;text-align:center;
+    color:var(--text-dim);font-size:13px;
+  }
+  .row-check{cursor:pointer;}
+  .strike{text-decoration:line-through;opacity:0.5;}
+
+  /* ---------- OVERVIEW ---------- */
+  .stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:22px;}
+  .stat-card{border:1px solid var(--border);background:var(--bg-panel);padding:14px 16px;border-radius:var(--radius);}
+  .stat-card .label{font-size:10.5px;color:var(--text-dim);letter-spacing:0.5px;text-transform:uppercase;font-family:'Space Mono',monospace;}
+  .stat-card .value{font-family:'Orbitron',sans-serif;font-size:22px;margin-top:6px;color:var(--text);}
+  .stat-card.green .value{color:var(--green);}
+  .stat-card.red .value{color:var(--red);}
+  .stat-card.gold .value{color:var(--gold);}
+
+  .chart-card{border:1px solid var(--border);background:var(--bg-panel);padding:16px;border-radius:var(--radius);margin-bottom:16px;}
+  .chart-card h3{font-size:11px;color:var(--text-dim);letter-spacing:0.5px;text-transform:uppercase;margin:0 0 14px;font-family:'Space Mono',monospace;}
+
+  .reset-row{margin-top:24px;}
+
+  /* ---------- MOBILE ---------- */
+  @media (max-width:760px){
+    .app{grid-template-columns:1fr;grid-template-areas:"header" "main" "nav";grid-template-rows:auto 1fr auto;}
+    nav{flex-direction:row;overflow-x:auto;border-right:none;border-top:1px solid var(--border);padding:8px;}
+    .nav-btn{flex:none;white-space:nowrap;}
+    main{max-height:none;}
+    .status .clock{display:none;}
+    .chat-shell{height:calc(100vh - 260px);}
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="core-wrap" id="core">
+      <svg viewBox="0 0 44 44">
+        <circle class="core-ring ring-outer" cx="22" cy="22" r="19"></circle>
+        <circle class="core-ring ring-mid" cx="22" cy="22" r="13"></circle>
+        <circle class="core-dot" cx="22" cy="22" r="3.4"></circle>
+      </svg>
+    </div>
+    <div class="brand">
+      <span class="name">AEGIS</span>
+      <span class="sub">AUTONOMOUS EXECUTIVE INTERFACE</span>
+    </div>
+    <div class="status">
+      <span><span class="dot"></span>ONLINE</span>
+      <span class="clock" id="clock">--:--:--</span>
+    </div>
+  </header>
+
+  <nav>
+    <button class="nav-btn active" data-panel="command"><span>Command</span></button>
+    <button class="nav-btn" data-panel="overview"><span>Overview</span></button>
+    <button class="nav-btn" data-panel="tasks"><span>Tasks</span></button>
+    <button class="nav-btn" data-panel="clients"><span>Clients</span></button>
+    <button class="nav-btn" data-panel="finances"><span>Finances</span></button>
+  </nav>
+
+  <main>
+    <!-- COMMAND -->
+    <section class="panel active" id="panel-command">
+      <h2 class="panel-title">Command</h2>
+      <p class="panel-desc">Talk to AEGIS. It can see your tasks, clients and finances, and can add or update them directly from what you say.</p>
+      <div class="chat-shell">
+        <div class="chat-log" id="chatLog"></div>
+        <div class="actions-log" id="actionsLog" style="display:none;padding:0 18px;"></div>
+        <div class="chat-input-row">
+          <button class="icon-btn" id="micBtn" title="Voice input">🎙</button>
+          <input id="chatInput" type="text" placeholder="Ask AEGIS, or give it a directive…" autocomplete="off">
+          <button class="icon-btn" id="voiceOutBtn" title="Toggle spoken replies">🔊</button>
+          <button class="send-btn" id="sendBtn">Send</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- OVERVIEW -->
+    <section class="panel" id="panel-overview">
+      <h2 class="panel-title">Overview</h2>
+      <p class="panel-desc">Current state of the business, at a glance.</p>
+      <div class="stat-grid" id="statGrid"></div>
+      <div class="chart-card">
+        <h3>Recent Transactions</h3>
+        <svg id="chartSvg" width="100%" height="140" viewBox="0 0 600 140" preserveAspectRatio="none"></svg>
+      </div>
+      <div class="reset-row">
+        <button class="btn-ghost" id="resetBtn">Reset all data</button>
+      </div>
+    </section>
+
+    <!-- TASKS -->
+    <section class="panel" id="panel-tasks">
+      <h2 class="panel-title">Tasks</h2>
+      <p class="panel-desc">Directives AEGIS is tracking for you.</p>
+      <div class="toolbar">
+        <div class="field"><label>Title</label><input id="taskTitle" placeholder="e.g. Follow up with vendor" style="min-width:220px;"></div>
+        <div class="field"><label>Priority</label>
+          <select id="taskPriority"><option value="low">Low</option><option value="medium" selected>Medium</option><option value="high">High</option></select>
+        </div>
+        <div class="field"><label>Due</label><input id="taskDue" type="date"></div>
+        <button class="btn-primary" id="addTaskBtn">Add Task</button>
+      </div>
+      <div id="tasksWrap"></div>
+    </section>
+
+    <!-- CLIENTS -->
+    <section class="panel" id="panel-clients">
+      <h2 class="panel-title">Clients</h2>
+      <p class="panel-desc">Accounts on file.</p>
+      <div class="toolbar">
+        <div class="field"><label>Name</label><input id="clientName" placeholder="Client or company" style="min-width:200px;"></div>
+        <div class="field"><label>Status</label>
+          <select id="clientStatus"><option value="lead">Lead</option><option value="active" selected>Active</option><option value="paused">Paused</option></select>
+        </div>
+        <div class="field"><label>Value ($)</label><input id="clientValue" type="number" placeholder="0" style="min-width:100px;"></div>
+        <button class="btn-primary" id="addClientBtn">Add Client</button>
+      </div>
+      <div id="clientsWrap"></div>
+    </section>
+
+    <!-- FINANCES -->
+    <section class="panel" id="panel-finances">
+      <h2 class="panel-title">Finances</h2>
+      <p class="panel-desc">Income and expenses logged.</p>
+      <div class="toolbar">
+        <div class="field"><label>Type</label>
+          <select id="finType"><option value="income">Income</option><option value="expense">Expense</option></select>
+        </div>
+        <div class="field"><label>Description</label><input id="finDesc" placeholder="e.g. Client invoice #204" style="min-width:220px;"></div>
+        <div class="field"><label>Amount ($)</label><input id="finAmount" type="number" placeholder="0"></div>
+        <button class="btn-primary" id="addFinBtn">Log Entry</button>
+      </div>
+      <div id="financesWrap"></div>
+    </section>
+  </main>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ---------------- STATE ---------------- */
+  let state = { tasks: [], clients: [], finances: [] };
+  let chat = [];
+  let stateVersion = null;
+  let chatVersion = null;
+  let voiceOut = true;
+  let recognizing = false;
+
+  const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+
+  /* ---------------- PERSISTENCE (browser localStorage — per device) ---------------- */
+  async function loadAll(){
+    try{
+      const s = localStorage.getItem('aegis-business-data');
+      if(s){ state = JSON.parse(s); }
+    }catch(e){ /* no data yet */ }
+    try{
+      const c = localStorage.getItem('aegis-chat-history');
+      if(c){ chat = JSON.parse(c); }
+    }catch(e){ /* no data yet */ }
+  }
+  async function saveState(){
+    try{ localStorage.setItem('aegis-business-data', JSON.stringify(state)); }
+    catch(e){ console.error('Storage error (state):', e); }
+  }
+  async function saveChat(){
+    try{
+      const trimmed = chat.slice(-40);
+      localStorage.setItem('aegis-chat-history', JSON.stringify(trimmed));
+    }catch(e){ console.error('Storage error (chat):', e); }
+  }
+
+  /* ---------------- NAV ---------------- */
+  document.querySelectorAll('.nav-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+      document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('panel-'+btn.dataset.panel).classList.add('active');
+      if(btn.dataset.panel === 'overview') renderOverview();
+    });
+  });
+
+  /* ---------------- CLOCK ---------------- */
+  function tickClock(){
+    const el = document.getElementById('clock');
+    el.textContent = new Date().toLocaleTimeString('en-US', {hour12:false});
+  }
+  setInterval(tickClock, 1000); tickClock();
+
+  /* ---------------- CORE VISUAL STATE ---------------- */
+  const core = document.getElementById('core');
+  function setCore(mode){
+    core.classList.remove('thinking','listening');
+    if(mode) core.classList.add(mode);
+  }
+
+  /* ---------------- TASKS ---------------- */
+  function renderTasks(){
+    const wrap = document.getElementById('tasksWrap');
+    if(state.tasks.length === 0){
+      wrap.innerHTML = '<div class="empty-state">No active directives. Tell AEGIS what needs doing, or add one above.</div>';
+      return;
+    }
+    const sorted = [...state.tasks].sort((a,b)=> (a.status==='done') - (b.status==='done'));
+    let rows = sorted.map(t=>`
+      <tr>
+        <td><input type="checkbox" class="row-check" data-id="${t.id}" ${t.status==='done'?'checked':''}></td>
+        <td class="${t.status==='done'?'strike':''}">${escapeHtml(t.title)}</td>
+        <td><span class="pill ${t.priority}">${t.priority}</span></td>
+        <td>${t.due || '—'}</td>
+        <td><button class="btn-ghost" data-del="${t.id}">Remove</button></td>
+      </tr>
+    `).join('');
+    wrap.innerHTML = `<table><thead><tr><th></th><th>Title</th><th>Priority</th><th>Due</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
+    wrap.querySelectorAll('.row-check').forEach(cb=>{
+      cb.addEventListener('change', ()=>{
+        const t = state.tasks.find(x=>x.id===cb.dataset.id);
+        if(t){ t.status = cb.checked ? 'done' : 'todo'; saveState(); renderTasks(); }
+      });
+    });
+    wrap.querySelectorAll('[data-del]').forEach(b=>{
+      b.addEventListener('click', ()=>{
+        state.tasks = state.tasks.filter(x=>x.id!==b.dataset.del);
+        saveState(); renderTasks();
+      });
+    });
+  }
+  document.getElementById('addTaskBtn').addEventListener('click', ()=>{
+    const title = document.getElementById('taskTitle').value.trim();
+    if(!title) return;
+    const priority = document.getElementById('taskPriority').value;
+    const due = document.getElementById('taskDue').value || null;
+    state.tasks.push({id:uid(), title, priority, due, status:'todo'});
+    document.getElementById('taskTitle').value = '';
+    document.getElementById('taskDue').value = '';
+    saveState(); renderTasks();
+  });
+
+  /* ---------------- CLIENTS ---------------- */
+  function renderClients(){
+    const wrap = document.getElementById('clientsWrap');
+    if(state.clients.length === 0){
+      wrap.innerHTML = '<div class="empty-state">No accounts on file. Add your first client above.</div>';
+      return;
+    }
+    let rows = state.clients.map(c=>`
+      <tr>
+        <td>${escapeHtml(c.name)}</td>
+        <td><span class="pill ${c.status}">${c.status}</span></td>
+        <td>${c.value ? '$'+Number(c.value).toLocaleString() : '—'}</td>
+        <td><button class="btn-ghost" data-del="${c.id}">Remove</button></td>
+      </tr>
+    `).join('');
+    wrap.innerHTML = `<table><thead><tr><th>Name</th><th>Status</th><th>Value</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
+    wrap.querySelectorAll('[data-del]').forEach(b=>{
+      b.addEventListener('click', ()=>{
+        state.clients = state.clients.filter(x=>x.id!==b.dataset.del);
+        saveState(); renderClients();
+      });
+    });
+  }
+  document.getElementById('addClientBtn').addEventListener('click', ()=>{
+    const name = document.getElementById('clientName').value.trim();
+    if(!name) return;
+    const status = document.getElementById('clientStatus').value;
+    const value = Number(document.getElementById('clientValue').value) || 0;
+    state.clients.push({id:uid(), name, status, value});
+    document.getElementById('clientName').value = '';
+    document.getElementById('clientValue').value = '';
+    saveState(); renderClients();
+  });
+
+  /* ---------------- FINANCES ---------------- */
+  function renderFinances(){
+    const wrap = document.getElementById('financesWrap');
+    if(state.finances.length === 0){
+      wrap.innerHTML = '<div class="empty-state">No transactions logged yet. Log your first entry above.</div>';
+      return;
+    }
+    const sorted = [...state.finances].sort((a,b)=> b.date.localeCompare(a.date));
+    let rows = sorted.map(f=>`
+      <tr>
+        <td>${f.date}</td>
+        <td><span class="pill ${f.type}">${f.type}</span></td>
+        <td>${escapeHtml(f.desc)}</td>
+        <td>${f.type==='income'?'+':'-'}$${Number(f.amount).toLocaleString()}</td>
+        <td><button class="btn-ghost" data-del="${f.id}">Remove</button></td>
+      </tr>
+    `).join('');
+    wrap.innerHTML = `<table><thead><tr><th>Date</th><th>Type</th><th>Description</th><th>Amount</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
+    wrap.querySelectorAll('[data-del]').forEach(b=>{
+      b.addEventListener('click', ()=>{
+        state.finances = state.finances.filter(x=>x.id!==b.dataset.del);
+        saveState(); renderFinances();
+      });
+    });
+  }
+  document.getElementById('addFinBtn').addEventListener('click', ()=>{
+    const desc = document.getElementById('finDesc').value.trim();
+    const amount = Number(document.getElementById('finAmount').value);
+    if(!desc || !amount) return;
+    const type = document.getElementById('finType').value;
+    state.finances.push({id:uid(), type, desc, amount, date:new Date().toISOString().slice(0,10)});
+    document.getElementById('finDesc').value = '';
+    document.getElementById('finAmount').value = '';
+    saveState(); renderFinances();
+  });
+
+  /* ---------------- OVERVIEW ---------------- */
+  function renderOverview(){
+    const revenue = state.finances.filter(f=>f.type==='income').reduce((s,f)=>s+Number(f.amount),0);
+    const expenses = state.finances.filter(f=>f.type==='expense').reduce((s,f)=>s+Number(f.amount),0);
+    const net = revenue - expenses;
+    const activeClients = state.clients.filter(c=>c.status==='active').length;
+    const openTasks = state.tasks.filter(t=>t.status!=='done').length;
+
+    const grid = document.getElementById('statGrid');
+    grid.innerHTML = `
+      <div class="stat-card green"><div class="label">Revenue</div><div class="value">$${revenue.toLocaleString()}</div></div>
+      <div class="stat-card red"><div class="label">Expenses</div><div class="value">$${expenses.toLocaleString()}</div></div>
+      <div class="stat-card ${net>=0?'green':'red'}"><div class="label">Net</div><div class="value">${net>=0?'$':'-$'}${Math.abs(net).toLocaleString()}</div></div>
+      <div class="stat-card gold"><div class="label">Active Clients</div><div class="value">${activeClients}</div></div>
+      <div class="stat-card"><div class="label">Open Tasks</div><div class="value">${openTasks}</div></div>
+    `;
+
+    const svg = document.getElementById('chartSvg');
+    const entries = [...state.finances].sort((a,b)=>a.date.localeCompare(b.date)).slice(-10);
+    if(entries.length === 0){
+      svg.innerHTML = '<text x="300" y="70" fill="#6f8aa3" font-size="12" text-anchor="middle" font-family="Space Mono, monospace">No transaction data yet</text>';
+      return;
+    }
+    const max = Math.max(...entries.map(e=>Math.abs(e.amount)), 1);
+    const bw = 600 / entries.length;
+    let bars = entries.map((e,i)=>{
+      const h = (Math.abs(e.amount)/max) * 100;
+      const x = i*bw + bw*0.2;
+      const w = bw*0.6;
+      const y = 110 - h;
+      const color = e.type==='income' ? '#5cffa8' : '#ff5468';
+      return `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${color}" opacity="0.85" rx="1"></rect>`;
+    }).join('');
+    svg.innerHTML = bars + '<line x1="0" y1="110" x2="600" y2="110" stroke="#4fd8ff" stroke-opacity="0.2"></line>';
+  }
+
+  document.getElementById('resetBtn').addEventListener('click', async ()=>{
+    if(!confirm('This clears all tasks, clients, finances and chat history. Continue?')) return;
+    state = {tasks:[], clients:[], finances:[]};
+    chat = [];
+    await saveState(); await saveChat();
+    renderTasks(); renderClients(); renderFinances(); renderOverview(); renderChat();
+  });
+
+  function escapeHtml(str){
+    const d = document.createElement('div');
+    d.textContent = str;
+    return d.innerHTML;
+  }
+
+  /* ---------------- CHAT / AI ---------------- */
+  const chatLog = document.getElementById('chatLog');
+  const chatInput = document.getElementById('chatInput');
+  const sendBtn = document.getElementById('sendBtn');
+  const voiceOutBtn = document.getElementById('voiceOutBtn');
+  const micBtn = document.getElementById('micBtn');
+
+  function renderChat(){
+    chatLog.innerHTML = chat.map(m=>{
+      if(m.role === 'user') return `<div class="msg user"><span class="label">You</span>${escapeHtml(m.content)}</div>`;
+      if(m.role === 'error') return `<div class="msg error">${escapeHtml(m.content)}</div>`;
+      return `<div class="msg assistant"><span class="label">AEGIS</span>${escapeHtml(m.content)}</div>`;
+    }).join('');
+    chatLog.scrollTop = chatLog.scrollHeight;
+  }
+
+  function buildSystemPrompt(){
+    const openTasks = state.tasks.filter(t=>t.status!=='done').slice(0,20).map(t=>({title:t.title, priority:t.priority, due:t.due}));
+    const clients = state.clients.slice(0,20).map(c=>({name:c.name, status:c.status, value:c.value}));
+    const revenue = state.finances.filter(f=>f.type==='income').reduce((s,f)=>s+Number(f.amount),0);
+    const expenses = state.finances.filter(f=>f.type==='expense').reduce((s,f)=>s+Number(f.amount),0);
+
+    return `You are AEGIS, a calm, sharp, unfailingly loyal AI executive assistant that helps a solo operator run their business. Speak concisely, like a trusted chief of staff — no filler, no hedging, occasional dry wit is fine.
+
+Today's date: ${new Date().toISOString().slice(0,10)}
+
+Current business snapshot (JSON):
+Open tasks: ${JSON.stringify(openTasks)}
+Clients: ${JSON.stringify(clients)}
+Revenue so far: ${revenue}
+Expenses so far: ${expenses}
+
+You can take actions on the user's behalf by including them in an "actions" array. Supported actions:
+- {"action":"add_task","title":string,"priority":"low"|"medium"|"high","due":"YYYY-MM-DD"|null}
+- {"action":"complete_task","title":string}  (matches an existing open task by partial title)
+- {"action":"add_client","name":string,"status":"lead"|"active"|"paused","value":number}
+- {"action":"add_finance","type":"income"|"expense","desc":string,"amount":number}
+
+Only include actions the user's message actually calls for. Do not invent data.
+
+Respond with ONLY a raw JSON object, no markdown fences, no prose outside it, in exactly this shape:
+{"reply": "your spoken response to the user, 1-4 sentences", "actions": [ ...zero or more action objects... ]}`;
+  }
+
+  function applyActions(actions){
+    const log = [];
+    (actions||[]).forEach(a=>{
+      try{
+        if(a.action === 'add_task' && a.title){
+          state.tasks.push({id:uid(), title:a.title, priority:a.priority||'medium', due:a.due||null, status:'todo'});
+          log.push('✓ Task added: ' + a.title);
+        } else if(a.action === 'complete_task' && a.title){
+          const t = state.tasks.find(x=>x.status!=='done' && x.title.toLowerCase().includes(a.title.toLowerCase()));
+          if(t){ t.status = 'done'; log.push('✓ Task completed: ' + t.title); }
+        } else if(a.action === 'add_client' && a.name){
+          state.clients.push({id:uid(), name:a.name, status:a.status||'lead', value:Number(a.value)||0});
+          log.push('✓ Client added: ' + a.name);
+        } else if(a.action === 'add_finance' && a.desc && a.amount){
+          state.finances.push({id:uid(), type:a.type||'income', desc:a.desc, amount:Number(a.amount), date:new Date().toISOString().slice(0,10)});
+          log.push('✓ Logged ' + (a.type||'income') + ': ' + a.desc + ' ($' + a.amount + ')');
+        }
+      }catch(e){ /* skip malformed action */ }
+    });
+    if(log.length){
+      saveState();
+      renderTasks(); renderClients(); renderFinances();
+      const alog = document.getElementById('actionsLog');
+      alog.style.display = 'flex';
+      alog.innerHTML = log.map(l=>`<div>${escapeHtml(l)}</div>`).join('');
+      setTimeout(()=>{ alog.style.display='none'; }, 6000);
+    }
+  }
+
+  function speak(text){
+    if(!voiceOut || !('speechSynthesis' in window)) return;
+    try{
+      window.speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(text);
+      u.rate = 1.02; u.pitch = 0.95;
+      window.speechSynthesis.speak(u);
+    }catch(e){ /* speech not available */ }
+  }
+
+  async function sendMessage(){
+    const text = chatInput.value.trim();
+    if(!text) return;
+    chatInput.value = '';
+    chat.push({role:'user', content:text});
+    renderChat(); saveChat();
+    sendBtn.disabled = true;
+    setCore('thinking');
+
+    try{
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({
+          system: buildSystemPrompt(),
+          messages: chat.filter(m=>m.role==='user' || m.role==='assistant').map(m=>({role:m.role, content:m.content}))
+        })
+      });
+      const data = await response.json();
+      if(!response.ok || data.error){
+        throw new Error(data.error?.message || data.error || ('Server returned status ' + response.status));
+      }
+      const raw = (data.content||[]).map(b=>b.text||'').join('').trim();
+      const clean = raw.replace(/^```json\s*|```$/g, '').trim();
+      let parsed;
+      try{ parsed = JSON.parse(clean); }
+      catch(e){ parsed = {reply: raw || "I got an empty response that time — try rephrasing.", actions: []}; }
+
+      chat.push({role:'assistant', content: parsed.reply || '...'});
+      renderChat(); saveChat();
+      applyActions(parsed.actions);
+      speak(parsed.reply || '');
+    }catch(e){
+      chat.push({role:'error', content:'Request failed: ' + (e.message || 'unknown error') + '. Check your network and try again.'});
+      renderChat(); saveChat();
+    }finally{
+      sendBtn.disabled = false;
+      setCore(null);
+    }
+  }
+
+  sendBtn.addEventListener('click', sendMessage);
+  chatInput.addEventListener('keydown', e=>{ if(e.key==='Enter') sendMessage(); });
+
+  voiceOutBtn.addEventListener('click', ()=>{
+    voiceOut = !voiceOut;
+    voiceOutBtn.classList.toggle('on', voiceOut);
+    voiceOutBtn.textContent = voiceOut ? '🔊' : '🔇';
+    if(!voiceOut && 'speechSynthesis' in window) window.speechSynthesis.cancel();
+  });
+  voiceOutBtn.classList.add('on');
+
+  /* speech recognition (optional) */
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if(SR){
+    const recognition = new SR();
+    recognition.lang = 'en-US';
+    recognition.interimResults = false;
+    recognition.onstart = ()=>{ recognizing = true; micBtn.classList.add('on'); setCore('listening'); };
+    recognition.onend = ()=>{ recognizing = false; micBtn.classList.remove('on'); setCore(null); };
+    recognition.onresult = (e)=>{
+      const transcript = e.results[0][0].transcript;
+      chatInput.value = transcript;
+      sendMessage();
+    };
+    micBtn.addEventListener('click', ()=>{
+      if(recognizing){ recognition.stop(); } else { recognition.start(); }
+    });
+  } else {
+    micBtn.disabled = true;
+    micBtn.title = 'Voice input not supported in this browser';
+    micBtn.style.opacity = 0.35;
+  }
+
+  /* ---------------- INIT ---------------- */
+  async function init(){
+    await loadAll();
+    if(chat.length === 0){
+      chat.push({role:'greeting', content:"Systems online. I can see your tasks, clients and finances — tell me what to add, update, or check on."});
+    }
+    renderChat(); renderTasks(); renderClients(); renderFinances(); renderOverview();
+  }
+  init();
+})();
+</script>
+</body>
+</html>
